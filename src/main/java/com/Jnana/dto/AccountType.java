@@ -1,5 +1,5 @@
 package com.Jnana.dto;
 
-public class AccountType {
-
+public enum AccountType {
+	LEARNER, TUTOR
 }

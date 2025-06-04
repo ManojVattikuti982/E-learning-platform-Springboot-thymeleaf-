@@ -1,5 +1,13 @@
 package com.Jnana.repository;
 
-public interface LearnerRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.Jnana.model.Learner;
+
+public interface LearnerRepository extends JpaRepository<Learner, Long> {
+
+	boolean existsByMobile(long mobile);
+
+	boolean existsByEmail(String email);
 
 }
