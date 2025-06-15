@@ -2,10 +2,13 @@ package com.Jnana.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.json.JSONObject;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 
@@ -19,7 +22,9 @@ import com.Jnana.repository.CourseRepository;
 import com.Jnana.repository.EnrolledCourseRepository;
 import com.Jnana.repository.EnrolledSectionRepository;
 import com.Jnana.repository.LearnerRepository;
+import com.Jnana.repository.QuizQuestionRepository;
 import com.Jnana.repository.SectionRepository;
+import com.cloudinary.Cloudinary;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
@@ -28,12 +33,22 @@ import jakarta.servlet.http.HttpSession;
 
 @Service
 public class LearnerService {
+	
+	private final PasswordEncoder encoder;
+
+	private final Cloudinary cloudinary;
 
 	@Autowired
 	CourseRepository courseRepository;
 
 	@Autowired
 	LearnerRepository learnerRepository;
+	
+	@Autowired
+	ChatClient chatClient;
+
+	@Autowired
+	QuizQuestionRepository questionRepository;
 	
 	@Autowired
 	EnrolledSectionRepository enrolledSectionRepository;
@@ -48,6 +63,11 @@ public class LearnerService {
 	String key;
 	@Value("${razor-pay.api.secret}")
 	String secret;
+	
+	LearnerService(Cloudinary cloudinary, PasswordEncoder encoder) {
+		this.cloudinary = cloudinary;
+		this.encoder = encoder;
+	}
 
 	public String loadHome(HttpSession session) {
 		if (session.getAttribute("learner") != null) {
@@ -199,6 +219,33 @@ public class LearnerService {
 			model.addAttribute("id", id);
 
 			return "section-quiz.html";
+		} else {
+			session.setAttribute("fail", "Invalid Session, Login First");
+			return "redirect:/login";
+		}
+	}
+	
+	public String submitQuiz(Long id, HttpSession session, Map<String, String> quiz) {
+		if (session.getAttribute("learner") != null) {
+			EnrolledSection section = enrolledSectionRepository.findById(id).get();
+			String prompt = "";
+			for (String questionId : quiz.keySet()) {
+				String question = questionRepository.findById(Long.parseLong(questionId)).get().getQuestion();
+				String answer = quiz.get(questionId);
+				prompt += ". question: " + question + ". answer: " + answer;
+			}
+			prompt += "Evaluate the following quiz. For each question, consider the given answer. Return ONLY the total score out of 100 (just a number).\n\n";
+			String answer = chatClient.prompt(prompt).call().content();
+			int score = Integer.parseInt(answer);
+			if (score >= 75) {
+				section.setSectionQuizCompleted(true);
+				enrolledSectionRepository.save(section);
+				session.setAttribute("pass", "Quiz Cleared Success");
+			} else {
+				session.setAttribute("fail", "Quiz did not Clear try again");
+			}
+
+			return "redirect:/learner/view-enrolled-sections/" + id;
 		} else {
 			session.setAttribute("fail", "Invalid Session, Login First");
 			return "redirect:/login";

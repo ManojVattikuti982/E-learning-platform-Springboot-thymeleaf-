@@ -1,5 +1,6 @@
 package com.Jnana.config;
 
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,5 +28,10 @@ public class MyConfigClass {
 	Cloudinary cloudinary() {
 		String url = "cloudinary://" + cloudinary_key + ":" + cloudinary_secret + "@" + cloudinary_name;
 		return new Cloudinary(url);
+	}
+	
+	@Bean
+	ChatClient chatClient(ChatClient.Builder builder) {
+		return builder.build();
 	}
 }
